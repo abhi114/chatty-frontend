@@ -3,14 +3,14 @@ import { axiosInstance } from "../lib/axios.js";
 import toast from "react-hot-toast";
 import { io } from "socket.io-client";
 const BASE_URL = "http://localhost:5001";
-export const useAuthStore = create((set,get) => ({
+export const useAuthStore = create((set, get) => ({
   authUser: null,
   isSigningUp: false,
   isCheckingAuth: true,
   isLoggingIn: false,
   isUpdatingProfile: false,
-  onlineUsers:[],
-  socket:null,
+  onlineUsers: [],
+  socket: null,
   checkAuth: async () => {
     try {
       const response = await axiosInstance.get("/auth/check");
@@ -40,7 +40,7 @@ export const useAuthStore = create((set,get) => ({
       await axiosInstance.post("auth/logout");
       set({ authUser: null });
       toast.success("Logged out Successfully");
-      get().disconnectSocket()
+      get().disconnectSocket();
     } catch (error) {
       toast.error(error.response.data.message);
     }
@@ -51,7 +51,7 @@ export const useAuthStore = create((set,get) => ({
       const res = await axiosInstance.post("/auth/login", data);
       set({ authUser: res.data });
       toast.success("logged in Successfully");
-      get().connectSocket()
+      get().connectSocket();
     } catch (error) {
       toast.error(error.response.data.message);
     } finally {
@@ -59,28 +59,36 @@ export const useAuthStore = create((set,get) => ({
     }
   },
   updateProfile: async (data) => {
-    set({isUpdatingProfile:true})
+    set({ isUpdatingProfile: true });
     try {
-        const res = await axiosInstance.put("/auth/update-profile",data);
-        set({authUser:res.data});
-        toast.success("Profile Updated Successfully");
+      const res = await axiosInstance.put("/auth/update-profile", data);
+      set({ authUser: res.data });
+      toast.success("Profile Updated Successfully");
     } catch (error) {
-        console.log("error in update Profile",error);
-        toast.error(error.response.data.message);
-    }finally{
-        set({isUpdatingProfile:false});
+      console.log("error in update Profile", error);
+      toast.error(error.response.data.message);
+    } finally {
+      set({ isUpdatingProfile: false });
     }
   },
-  connectSocket: ()=>{
-    const {authUser} = get();
-    if(!authUser || get().socket?.connected)return;
-      const socket = io(BASE_URL)
-      socket.connect()
-      set({socket:socket})
+  connectSocket: () => {
+    const { authUser } = get();
+   // console.log("here auth user is" + JSON.stringify(authUser))
+    if (!authUser || get().socket?.connected) return;
+    const socket = io(BASE_URL, {
+      query: { userId: authUser._id }, // id for the currently signed in user
+    });
+    socket.connect();
+    set({ socket: socket });
+    //we have created this channel in the backend and are sending the userId based on when people are connecting or disconnecting from the app page
+    socket.on("getOnlineUsers", (userIds) => {
+      //console.log("socket it" + userIds)
+      set({ onlineUsers: userIds }); 
+    });
   },
-  disconnectSocket:()=>{
-      if(get().socket?.connected) {
-        get().socket.disconnect();
-      }
-  }
+  disconnectSocket: () => {
+    if (get().socket?.connected) {
+      get().socket.disconnect();
+    }
+  },
 }));
